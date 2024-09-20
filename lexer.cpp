@@ -9,44 +9,7 @@
 #include <vector>
 #include <fstream>
 #include <sstream>
-
-enum TokenType {
-    INVALID,
-    INSTRUCTION,
-    REGISTER,
-    IMMEDIATE,
-    SEPARATOR, //to dentify stuff like commas
-    NEWLINE,
-    LABEL,
-    ENDOFFILE // will have to look into how to properly implement this, also check if it's even needed
-};
-
-// enum of registers in 8085
-enum Registers{
-    INVALID_REGISTER,
-    A, B, C, D, E,
-    H, L, SP, PC, FLAG
-};
-
-// enum of instructions in 8085
-enum Instructions{
-    INVALID_INSTRUCTION,
-    MOV, ADD, MVI, AND, ANI,
-    XOR, SUB, INR, DCR
-};
-
-// will hold the string of instruction and type
-// eg:- MOV A, B
-struct Token{
-    TokenType type;
-    std::string value;
-
-    Token(TokenType t, std::string v){
-        type = t;
-        value = v;
-    }
-
-};
+#include "Token.hpp"
 
 // prints the token value and type
 void printToken(const Token& token) {
@@ -55,7 +18,7 @@ void printToken(const Token& token) {
     // added for debugging
     // label tokenization caused a whole plethora of errors
     switch (token.type) {
-        case INVALID: typeName = "INVALID"; break;
+        case UNKNOWN: typeName = "UNKNOWN"; break;
         case INSTRUCTION: typeName = "INSTRUCTION"; break;
         case REGISTER: typeName = "REGISTER"; break;
         case IMMEDIATE: typeName = "IMMEDIATE"; break;
@@ -63,7 +26,7 @@ void printToken(const Token& token) {
         case NEWLINE: typeName = "NEWLINE"; break;
         case LABEL: typeName = "LABEL"; break;
         case ENDOFFILE: typeName = "ENDOFFILE"; break;
-        default: typeName = "UNKNOWN"; break;
+        default: typeName = "INVALID"; break;
     }
 
     std::cout << "Type: " << typeName << " (" << token.type << "), Value: " << token.value << std::endl;
@@ -94,7 +57,7 @@ Registers findRegisterEnum(const std::string& value){
 Instructions findInstructionEnum(const std::string& value){
     std::unordered_map<std::string, Instructions> insMap = {
          {"MOV", MOV}, {"ADD", ADD}, {"MVI", MVI}, {"AND", AND}, {"ANI", ANI}, 
-         {"XOR", XOR}, {"SUB", SUB}, {"INR", INR}, {"DCR", DCR}
+         {"XOR", XOR}, {"SUB", SUB}, {"INR", INR}, {"DCR", DCR}, {"JNZ", JNZ}
     };
     // auto is like var, automatic type inference
     // found is an iterator, iterators in C++ containers act like pointers
@@ -106,23 +69,24 @@ Instructions findInstructionEnum(const std::string& value){
 
 // coulda written this to recursivly traverse the tokens
 // right now it returns a vec of tokens of type Token*
+std::vector<Token*> tokens;
 std::vector<Token*> tokenize(const char* str) {
-    std::vector<Token*> tokens;
 
     while (*str) {
         // skip any whitespaces present at the start
-        while (*str && std::isspace(*str) && *str != '\n') {
+         while (*str && std::isspace(*str) && *str != '\n') {
             str++;
         }
 
-        // check if we're dealing with instructions or registers or labels
-        if (std::isalnum(*str) || *str == ':') {
+        // Check if we're dealing with labels, instructions, or registers
+        if (std::isalpha(*str) || *str == ':') {
             std::string value;
             bool isLabel = false;
 
-            // append alphanum elements plus colon for label
+            // Append alphanum elements plus colon for label
             while (std::isalnum(*str) || *str == ':') {
-                if (*str == ':') isLabel = true;
+                if (*str == ':')
+                    isLabel = true;
                 value += *str;
                 str++;
             }
@@ -140,12 +104,11 @@ std::vector<Token*> tokenize(const char* str) {
                     // Check if it is a register
                     Registers reg = findRegisterEnum(value);
                     if (reg != INVALID_REGISTER) {
-                        // invalid register
                         tokens.push_back(createToken(REGISTER, value));
                     } 
                     else {
-                        // invalid token type
-                        tokens.push_back(createToken(INVALID, value));
+                        // check if token type is known / valid
+                        tokens.push_back(createToken(UNKNOWN, value));
                     }
                 }
             }
@@ -202,7 +165,7 @@ int main(){
     fileContent += "\n";
 
     // c.str() will convert from std::string to char*
-    std::vector<Token*> tokens = tokenize(fileContent.c_str());
+    std::vector<Token*> tokens(tokenize(fileContent.c_str()));
     
     for (Token* token : tokens) {
         printToken(*token);
