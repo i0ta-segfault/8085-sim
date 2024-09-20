@@ -1,3 +1,3 @@
 Label1: MVI B, 40
-MOV Z, 00
+MOV Z, 10
 SUB B
